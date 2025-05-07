@@ -1,7 +1,11 @@
 import ee
 import geemap
 import numpy as np
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import models.unet as unet
+
 
 def maskS2clouds(image):
     qa = image.select('QA60')
