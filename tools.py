@@ -1,6 +1,7 @@
 import ee
 import geemap
 import numpy as np
+import models.unet as unet
 
 def maskS2clouds(image):
     qa = image.select('QA60')
@@ -43,44 +44,62 @@ def LandCoverFilter2(image):
 
     return image.addBands(landcover.rename('landcover_classification'))
 
-def ImageCollection2List(s2_collection, aoi, scale=10):
+def Image2Aarray(collection, region, scale=10):
+    """Convert an image collection to a 4D array (image, band, y, x)"""
+    image_count = collection.size().getInfo()
+    band_names = collection.first().bandNames().getInfo()
     
-    # Get the list of images in the collection
-    image_list = s2_collection.toList(s2_collection.size())
+    # Create a list to store arrays
+    image_arrays = []
     
-    # Get the size of the collection
-    collection_size = image_list.size().getInfo()
-    print(f"Processing {collection_size} images...")
+    # Get dates for labeling
+    dates = []
     
-    results = []
+    # Convert each image to array
+    images = collection.toList(image_count)
+    for i in range(image_count):
+        image = ee.Image(images.get(i))
+        array = geemap.ee_to_numpy(image, region=region, scale=scale)
+        
+        # Get acquisition date
+        date = ee.Date(image.get('system:time_start')).format('YYYY-MM-dd').getInfo()
+        dates.append(date)
+        
+        image_arrays.append(array)
     
-    # Process each image in the collection
-    for i in range(collection_size):
-        # Get the image from the list
-        image = ee.Image(image_list.get(i))
-        
-        # Get the image date for reference
-        image_date = ee.Date(image.get('system:time_start')).format('YYYY-MM-dd').getInfo()
-        print(f"Processing image from {image_date}")
-        
-        # Select the bands you want to use
-        bands_to_select = ['B2', 'B3', 'B4', 'B8']  # Example: RGB + NIR
-        image_with_bands = image.select(bands_to_select)
-        
-        # Convert to NumPy array
-        image_array = geemap.ee_to_numpy(
-            image_with_bands,
-            region=aoi,
-            scale=scale
-        )
-        
-        # Skip if the image has no valid data (all zeros or NaN)
-        if np.all(image_array == 0) or np.isnan(image_array).any():
-            print(f"Skipping image from {image_date} - no valid data")
-            continue
-        
-        # Preprocess the array for your model
-        # Reshape: [height, width, channels] -> [channels, height, width]
-        input_array = np.transpose(image_array, (2, 0, 1))
-        results.append(input_array)
-    return results
+    return np.stack(image_arrays), dates, band_names
+
+def GridImage2Array(image, grid_arrays, grid_coords, cell_idx, geometry):
+    # Get the bounds of the grid cell
+    bounds = geometry.bounds
+    cell_geometry = ee.Geometry.Rectangle(bounds)
+    
+    # Get coordinates for later reference
+    grid_coords[cell_idx] = {
+        'minx': bounds[0],
+        'miny': bounds[1],
+        'maxx': bounds[2],
+        'maxy': bounds[3],
+        'geometry': geometry
+    }
+    
+    # Clip the image to the grid cell
+    cell_image = image.clip(cell_geometry)
+    
+    # Export as array (you can choose specific bands if needed)
+    # Here we're getting all 11 bands
+    cell_array = geemap.ee_to_numpy(
+        cell_image, 
+        region=cell_geometry,
+        bands=image.bandNames().getInfo()
+    )
+    
+    # Store in dictionary
+    #grid_arrays[cell_idx] = cell_array
+    grid_arrays[cell_idx] = np.transpose(cell_array, (2,0,1))
+    
+    # Optional: Apply your processing steps here
+    # processed_array = your_processing_function(cell_array)
+    # grid_arrays[cell_idx] = processed_array
+    
+    return cell_array
