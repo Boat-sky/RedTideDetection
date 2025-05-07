@@ -73,35 +73,34 @@ def Image2Aarray(collection, region, scale=10):
     
     return np.stack(image_arrays), dates, band_names
 
-def GridImage2Array(image, cell_idx, geometry):
+def GridImages2Array(image, grid_gdf):
     grid_arrays = {}
     grid_coords = {}
-    # Get the bounds of the grid cell
-    bounds = geometry.bounds
-    cell_geometry = ee.Geometry.Rectangle(bounds)
-    
-    # Get coordinates for later reference
-    grid_coords[cell_idx] = {
-        'minx': bounds[0],
-        'miny': bounds[1],
-        'maxx': bounds[2],
-        'maxy': bounds[3],
-        'geometry': geometry
-    }
-    
-    # Clip the image to the grid cell
-    cell_image = image.clip(cell_geometry)
-    
-    # Export as array (you can choose specific bands if needed)
-    # Here we're getting all 11 bands
-    cell_array = geemap.ee_to_numpy(
-        cell_image, 
-        region=cell_geometry,
-        bands=image.bandNames().getInfo()
-    )
-    
-    # Store in dictionary
-    #grid_arrays[cell_idx] = cell_array
-    grid_arrays[cell_idx] = np.transpose(cell_array, (2,0,1))
+    for cell_idx, row in grid_gdf.iterrows():
+      geometry = row.geometry
+      bounds = geometry.bounds
+      cell_geometry = ee.Geometry.Rectangle(bounds)
+      
+      # Get coordinates for later reference
+      grid_coords[cell_idx] = {
+          'minx': bounds[0],
+          'miny': bounds[1],
+          'maxx': bounds[2],
+          'maxy': bounds[3],
+          'geometry': geometry
+      }
+      
+      # Clip the image to the grid cell
+      cell_image = image.clip(cell_geometry)
+      
+      # Export as array (you can choose specific bands if needed)
+      # Here we're getting all 11 bands
+      cell_array = geemap.ee_to_numpy(
+          cell_image, 
+          region=cell_geometry,
+          bands=image.bandNames().getInfo()
+      )
+      
+      grid_arrays[cell_idx] = np.transpose(cell_array, (2,0,1))
     
     return grid_arrays, grid_coords
