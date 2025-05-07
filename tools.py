@@ -73,7 +73,9 @@ def Image2Aarray(collection, region, scale=10):
     
     return np.stack(image_arrays), dates, band_names
 
-def GridImage2Array(image, grid_arrays, grid_coords, cell_idx, geometry):
+def GridImage2Array(image, cell_idx, geometry):
+    grid_arrays = {}
+    grid_coords = {}
     # Get the bounds of the grid cell
     bounds = geometry.bounds
     cell_geometry = ee.Geometry.Rectangle(bounds)
@@ -102,8 +104,4 @@ def GridImage2Array(image, grid_arrays, grid_coords, cell_idx, geometry):
     #grid_arrays[cell_idx] = cell_array
     grid_arrays[cell_idx] = np.transpose(cell_array, (2,0,1))
     
-    # Optional: Apply your processing steps here
-    # processed_array = your_processing_function(cell_array)
-    # grid_arrays[cell_idx] = processed_array
-    
-    return cell_array
+    return grid_arrays, grid_coords
