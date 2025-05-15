@@ -91,7 +91,7 @@ def GridImages2Array(image, grid_gdf):
       }
       
       # Clip the image to the grid cell
-      cell_image = image.clip(cell_geometry)
+      cell_image = image.clip(cell_geometry).toFloat()
       
       # Export as array (you can choose specific bands if needed)
       # Here we're getting all 11 bands
