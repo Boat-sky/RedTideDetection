@@ -100,7 +100,7 @@ def GridImages2Array(image, grid_gdf):
           region=cell_geometry,
           bands=image.bandNames().getInfo()
       )
-      
+      cell_array = np.where(np.isinf(cell_array), 0., cell_array)
       grid_arrays[cell_idx] = np.transpose(cell_array, (2,0,1))
     
     return grid_arrays, grid_coords
