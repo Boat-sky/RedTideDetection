@@ -364,4 +364,4 @@ def run_program(start_date, end_date):
     Map.addLayer(aoi, {'color': 'red'}, 'AOI', False)
     Map.addLayer(rectangle, {'color': 'blue', 'fillColor': '0000FF88'}, 'Rectangle', False)
     Map.centerObject(point, zoom=11)
-    Map
+    return Map
