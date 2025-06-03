@@ -257,8 +257,8 @@ def merge_grid_arrays_variable_size(result_arrays, grid_coords, target_resolutio
         trim_width = end_x - start_x
         trim_height = end_y - start_y
 
-        print(f"Cell {cell_idx}: Placing array of shape {res_height}x{res_width} " +
-              f"at position ({start_y}:{end_y}, {start_x}:{end_x})")
+        #print(f"Cell {cell_idx}: Placing array of shape {res_height}x{res_width} " +
+        #      f"at position ({start_y}:{end_y}, {start_x}:{end_x})")
 
         # Place the resized and trimmed array in the correct position
         try:
@@ -268,7 +268,7 @@ def merge_grid_arrays_variable_size(result_arrays, grid_coords, target_resolutio
             #print(f"Array shape: {resized_array.shape}, Trim dimensions: {trim_height}x{trim_width}")
             #print(f"Target position: {start_y}:{end_y}, {start_x}:{end_x}")
             #print(f"Merged array shape: {merged_array.shape}")
-
+    
     # Return the merged array and the extent
     return merged_array, (all_minx, all_miny, all_maxx, all_maxy)
 
