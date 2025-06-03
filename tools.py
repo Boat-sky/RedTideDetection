@@ -172,3 +172,95 @@ def DetectRedTide(grid_arrays, model):
     prediction[inf_mask] = 0
     result_arrays[k] = prediction
   return result_arrays
+def merge_grid_arrays_variable_size(result_arrays, grid_coords, target_resolution=None):
+    all_minx = min(coord['minx'] for coord in grid_coords.values())
+    all_miny = min(coord['miny'] for coord in grid_coords.values())
+    all_maxx = max(coord['maxx'] for coord in grid_coords.values())
+    all_maxy = max(coord['maxy'] for coord in grid_coords.values())
+
+    # Calculate the resolution for each grid cell
+    cell_resolutions = {}
+    for cell_idx, array in result_arrays.items():
+        coords = grid_coords[cell_idx]
+        height, width = array.shape
+
+        x_res = (coords['maxx'] - coords['minx']) / width
+        y_res = (coords['maxy'] - coords['miny']) / height
+
+        cell_resolutions[cell_idx] = (x_res, y_res)
+
+    # Calculate average resolution if target resolution is not provided
+    if target_resolution is None:
+        avg_x_res = np.mean([res[0] for res in cell_resolutions.values()])
+        avg_y_res = np.mean([res[1] for res in cell_resolutions.values()])
+        target_resolution = (avg_x_res, avg_y_res)
+
+    x_res, y_res = target_resolution
+    #print(f"Using target resolution: {x_res:.6f}, {y_res:.6f}")
+
+    # Calculate the size of the final array
+    total_width = int(round((all_maxx - all_minx) / x_res))
+    total_height = int(round((all_maxy - all_miny) / y_res))
+
+    #print(f"Creating merged array of shape: {total_height} x {total_width}")
+
+    # Create an empty array to hold the merged result
+    merged_array = np.zeros((total_height, total_width), dtype=np.uint8)
+
+    # Place each grid array into the correct position in the merged array
+    for cell_idx, array in result_arrays.items():
+        coords = grid_coords[cell_idx]
+        orig_height, orig_width = array.shape
+
+        # Calculate the real-world dimensions of this cell
+        cell_width_geo = coords['maxx'] - coords['minx']
+        cell_height_geo = coords['maxy'] - coords['miny']
+
+        # Calculate the target dimensions in pixels based on target resolution
+        target_width = int(round(cell_width_geo / x_res))
+        target_height = int(round(cell_height_geo / y_res))
+
+        # Resize the array if needed
+        if target_width != orig_width or target_height != orig_height:
+            # Calculate zoom factors
+            zoom_x = target_width / orig_width
+            zoom_y = target_height / orig_height
+
+            # Use order=0 for nearest neighbor interpolation (good for binary data)
+            resized_array = zoom(array, (zoom_y, zoom_x), order=0)
+
+            # Make sure the resized array is binary (0s and 1s only)
+            resized_array = (resized_array > 0.5).astype(np.uint8)
+        else:
+            resized_array = array
+
+        # Calculate where this grid should be placed in the merged array
+        start_x = int(round((coords['minx'] - all_minx) / x_res))
+        # Flip y-axis (since array origin is top-left but geo coordinates are bottom-left)
+        start_y = int(round((all_maxy - coords['maxy']) / y_res))
+
+        # Get the dimensions of the resized array
+        res_height, res_width = resized_array.shape
+
+        # Ensure we don't go out of bounds
+        end_x = min(start_x + res_width, total_width)
+        end_y = min(start_y + res_height, total_height)
+
+        # Trim the resized array if needed
+        trim_width = end_x - start_x
+        trim_height = end_y - start_y
+
+        print(f"Cell {cell_idx}: Placing array of shape {res_height}x{res_width} " +
+              f"at position ({start_y}:{end_y}, {start_x}:{end_x})")
+
+        # Place the resized and trimmed array in the correct position
+        try:
+            merged_array[start_y:end_y, start_x:end_x] = resized_array[:trim_height, :trim_width]
+        except ValueError as e:
+            #print(f"Error placing array for cell {cell_idx}: {e}")
+            #print(f"Array shape: {resized_array.shape}, Trim dimensions: {trim_height}x{trim_width}")
+            #print(f"Target position: {start_y}:{end_y}, {start_x}:{end_x}")
+            #print(f"Merged array shape: {merged_array.shape}")
+
+    # Return the merged array and the extent
+    return merged_array, (all_minx, all_miny, all_maxx, all_maxy)
