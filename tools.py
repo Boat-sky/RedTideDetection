@@ -332,3 +332,33 @@ def run_program(start_date, end_date):
     print('***** Predicting Result *****')
     result_arrays = DetectRedTide(grid_arrays, model)
     merged_array, extent = merge_grid_arrays_variable_size(result_arrays, grid_coords)
+
+    print('***** Predict Finish! *****')
+    plt.figure(figsize=(20, 90))
+    plt.imshow(merged_array, cmap='gray')
+    plt.axis('off')
+    plt.show()
+
+    Map = geemap.Map()
+
+    rgb_vis = {
+        'bands': ['B4', 'B3', 'B2'],  # R, G, B bands
+        'min': 0,
+        'max': 3000,
+        'gamma': 1.4
+    }
+    
+    false_vis = {
+        'bands': ['B8', 'B4', 'B3'],  # R, G, B bands
+        'min': 0,
+        'max': 3000,
+        'gamma': 1.4
+    }
+    
+    Map = geemap.Map()
+    Map.addLayer(last_image.clip(rectangle), rgb_vis, 'Sentinel-2 RGB')
+    Map.addLayer(last_image.clip(rectangle), false_vis, 'Sentinel-2 false', False)
+    Map.addLayer(aoi, {'color': 'red'}, 'AOI', False)
+    Map.addLayer(rectangle, {'color': 'blue', 'fillColor': '0000FF88'}, 'Rectangle', False)
+    Map.centerObject(point, zoom=11)
+    Map
