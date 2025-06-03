@@ -134,7 +134,7 @@ def img_preprocessing(img):
     return img
 
 def DetectOneGrid(input_img, model):
-  img = input_img[:-1, :, :].copy()
+  img = input_img[:-3, :, :].copy()
   colap_size = 20
   crop_size = 512
   img = torch.from_numpy(img_preprocessing(img)).float()
