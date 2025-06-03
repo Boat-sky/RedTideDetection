@@ -264,3 +264,71 @@ def merge_grid_arrays_variable_size(result_arrays, grid_coords, target_resolutio
 
     # Return the merged array and the extent
     return merged_array, (all_minx, all_miny, all_maxx, all_maxy)
+
+def run_program(start_date, end_date):
+    lon, lat = 100.50, 13.35
+    point = ee.Geometry.Point([lon, lat])
+    aoi = point.buffer(3000)
+
+    s2_l2 = (
+    ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+    .filterDate(start_date, end_date)
+    .filterBounds(aoi)
+    #.filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 25))
+    .select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7',
+                        'B8', 'B8A', 'B11', 'B12', 'QA60'])
+    )
+    
+    s2_l2_masked = s2_l2.map(maskS2clouds).map(maskLandSurface).map(LandCoverFilter2)
+    
+    last_image = s2_l2_masked.sort('system:time_start', False).first()
+
+    half_height = 10000
+    half_width =  45000
+    rectangle = ee.Geometry.Rectangle([
+        lon - half_width/111000,  # แปลงจากระยะทางเป็นองศา
+        lat - half_height/111000,
+        lon + half_width/111000,
+        lat + half_height/111000
+    ])
+    
+    grid = geemap.fishnet(rectangle, h_interval=0.08, v_interval=0.08)
+    grid_gdf = geemap.ee_to_gdf(grid)
+
+    bandsKeep = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7',
+                     'B8', 'B8A', 'B11', 'B12', 'landcover_classification']
+    
+    s2_clipped = last_image.clip(rectangle)
+    final_image = s2_clipped.select(bandsKeep)
+    print('***** Loading Satellite Image *****')
+    grid_arrays, grid_coords = GridImages2Array(final_image, grid_gdf)
+    
+    print('***** Loading Trained Model *****')
+    model_path = hf_hub_download(
+    repo_id="Boba-45/red-tide-model",
+    #filename="ver2_unet__epoch_5.pth"
+    filename="ver2_transunet_epoch_61.pth"
+    )
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    checkpoint = torch.load(model_path, map_location=device)
+    
+    n_classes=1
+    logits = True
+    #model = unet.UNet(in_dim=8, n_classes=n_classes, logits=logits)
+    vit_name = 'R50-ViT-B_16'
+    n_skip = 3
+    img_size = 512
+    vit_patches_size = 16
+    config_vit = CONFIGS_ViT_seg[vit_name]
+    config_vit.n_classes = 1
+    config_vit.n_skip = n_skip
+    if vit_name.find('R50') != -1:
+        config_vit.patches.grid = (int(img_size / vit_patches_size), int(img_size / vit_patches_size))
+    model = transunet.VisionTransformer(config=config_vit, img_size=img_size, num_classes=1)
+    
+    model.load_state_dict(checkpoint['model_state_dict'])
+
+    print('***** Predicting Result *****')
+    result_arrays = DetectRedTide(grid_arrays, model)
+    merged_array, extent = merge_grid_arrays_variable_size(result_arrays, grid_coords)
