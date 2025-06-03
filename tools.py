@@ -14,6 +14,8 @@ import models.unet as unet
 import models.vit_seg_modeling as transunet
 from models.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 def maskS2clouds(image):
     qa = image.select('QA60')
     
@@ -312,7 +314,6 @@ def run_program(start_date, end_date):
     filename="ver2_transunet_epoch_61.pth"
     )
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     checkpoint = torch.load(model_path, map_location=device)
     
     n_classes=1
