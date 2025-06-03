@@ -261,14 +261,9 @@ def merge_grid_arrays_variable_size(result_arrays, grid_coords, target_resolutio
         #      f"at position ({start_y}:{end_y}, {start_x}:{end_x})")
 
         # Place the resized and trimmed array in the correct position
-        try:
-            merged_array[start_y:end_y, start_x:end_x] = resized_array[:trim_height, :trim_width]
-        except ValueError as e:
-            #print(f"Error placing array for cell {cell_idx}: {e}")
-            #print(f"Array shape: {resized_array.shape}, Trim dimensions: {trim_height}x{trim_width}")
-            #print(f"Target position: {start_y}:{end_y}, {start_x}:{end_x}")
-            #print(f"Merged array shape: {merged_array.shape}")
-    
+
+        merged_array[start_y:end_y, start_x:end_x] = resized_array[:trim_height, :trim_width]
+
     # Return the merged array and the extent
     return merged_array, (all_minx, all_miny, all_maxx, all_maxy)
 
